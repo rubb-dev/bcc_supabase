@@ -1,0 +1,199 @@
+---
+import AuthLayout from "@/layouts/AuthLayout.astro";
+
+const url = new URL(Astro.request.url);
+const error = url.searchParams.get("error");
+
+let errorMessage = "";
+if (error === "missing") errorMessage = "Por favor, completa todos los campos.";
+if (error === "exists")  errorMessage = "Este correo ya está registrado. Inicia sesión o usa otro.";
+if (error === "server")  errorMessage = "No se pudo crear la cuenta. Inténtalo más tarde.";
+---
+
+<AuthLayout title="Crear cuenta | CargoMarket">
+  <section
+    class="relative min-h-screen flex items-center justify-center px-6 py-20"
+    style="background: linear-gradient(to bottom right, #eff6ff, #ffffff, #f8fafc);"
+  >
+    <div class="relative w-full max-w-md bg-white/85 backdrop-blur-md border border-white/60 rounded-2xl shadow-xl p-8">
+      <div class="text-center mb-6">
+        <div class="mx-auto w-12 h-12 rounded-lg bg-sky-600 text-white flex items-center justify-center text-xl font-bold">
+          C
+        </div>
+        <h1 class="text-2xl font-semibold mt-3 text-gray-800">Crear cuenta</h1>
+        <p class="text-sm text-gray-600 mt-2">
+          ¿Ya tienes una cuenta?
+          <a href="/auth/signin" class="text-sky-600 hover:underline font-medium">Inicia sesión</a>
+        </p>
+      </div>
+
+      <!-- Mensaje de error (backend + validación cliente) -->
+      <p
+        id="form-error"
+        class={`${
+          errorMessage ? "" : "hidden"
+        } text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4 text-sm`}
+        role="alert"
+      >
+        {errorMessage}
+      </p>
+
+      <form id="register-form" action="/api/auth/register" method="post" class="space-y-5" novalidate>
+        <!-- Email -->
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700">Email *</label>
+          <input
+            type="email"
+            name="email"
+            id="email"
+            required
+            autocomplete="email"
+            class="w-full mt-1 rounded-lg border-gray-300 focus:border-sky-500 focus:ring-sky-500"
+            placeholder="tucorreo@ejemplo.com"
+          />
+        </div>
+
+        <!-- Password -->
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700">Contraseña *</label>
+          <div class="relative">
+            <input
+              type="password"
+              name="password"
+              id="password"
+              required
+              minlength="6"
+              autocomplete="new-password"
+              class="w-full mt-1 rounded-lg border-gray-300 pr-10 focus:border-sky-500 focus:ring-sky-500"
+              placeholder="********"
+            />
+            <button type="button" data-toggle="pw1"
+              class="absolute inset-y-0 right-2 mt-1 px-2 text-sm text-slate-500 hover:text-slate-700">
+              Ver
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+
+          <!-- Indicador de fuerza -->
+          <div id="pw-strength" class="h-1 rounded mt-2 bg-slate-200 overflow-hidden">
+            <div id="pw-bar" class="h-full w-0"></div>
+          </div>
+        </div>
+
+        <!-- Confirmar contraseña -->
+        <div>
+          <label for="password2" class="block text-sm font-medium text-gray-700">Repite la contraseña *</label>
+          <div class="relative">
+            <input
+              type="password"
+              name="password2"
+              id="password2"
+              required
+              minlength="6"
+              autocomplete="new-password"
+              class="w-full mt-1 rounded-lg border-gray-300 pr-10 focus:border-sky-500 focus:ring-sky-500"
+              placeholder="********"
+            />
+            <button type="button" data-toggle="pw2"
+              class="absolute inset-y-0 right-2 mt-1 px-2 text-sm text-slate-500 hover:text-slate-700">
+              Ver
+            </button>
+          </div>
+        </div>
+
+        <!-- Términos -->
+        <div class="flex items-start gap-3 text-sm">
+          <input id="terms" name="terms" type="checkbox" required class="mt-1" />
+          <label for="terms" class="text-slate-600">
+            Acepto las <a href="/terminos" class="text-sky-600 hover:underline">Condiciones de uso</a> y la
+            <a href="/privacidad" class="text-sky-600 hover:underline">Política de privacidad</a>.
+          </label>
+        </div>
+
+        <!-- Botón -->
+        <button
+          type="submit"
+          class="w-full py-2.5 px-4 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700 transition-colors"
+        >
+          Registrarme
+        </button>
+
+        <p class="text-xs text-gray-500 text-center mt-2">
+          Todos los campos son obligatorios. Recibirás un correo para confirmar tu cuenta.
+        </p>
+      </form>
+    </div>
+  </section>
+
+  <script is:inline>
+    const form = document.getElementById('register-form');
+    const pw1 = document.getElementById('password');
+    const pw2 = document.getElementById('password2');
+    const bar = document.getElementById('pw-bar');
+    const err = document.getElementById('form-error');
+
+    // Mostrar / ocultar contraseña
+    document.querySelectorAll('[data-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-toggle') === 'pw1' ? pw1 : pw2;
+        const isText = target.type === 'text';
+        target.type = isText ? 'password' : 'text';
+        btn.textContent = isText ? 'Ver' : 'Ocultar';
+      });
+    });
+
+    // Indicador de fuerza simple
+    pw1.addEventListener('input', (e) => {
+      const val = e.target.value;
+      let w = 0;
+      if (val.length >= 6) w = 33;
+      if (/[A-Z]/.test(val) && /[a-z]/.test(val)) w = 66;
+      if (/\d/.test(val) && /[^A-Za-z0-9]/.test(val)) w = 100;
+      bar.style.width = w + '%';
+      bar.style.background = w < 34 ? '#ef4444' : w < 67 ? '#f59e0b' : '#10b981';
+    });
+
+    // Validación en cliente (bloquea envío)
+    form.addEventListener('submit', (e) => {
+      err.classList.add('hidden');
+      err.textContent = '';
+
+      const email = form.email.value.trim();
+      const pass1 = pw1.value;
+      const pass2 = pw2.value;
+      const terms = document.getElementById('terms');
+
+      if (!email) {
+        e.preventDefault();
+        err.textContent = "El email es obligatorio.";
+        err.classList.remove('hidden');
+        form.email.focus();
+        return;
+      }
+
+      if (pass1.length < 6) {
+        e.preventDefault();
+        err.textContent = "La contraseña debe tener al menos 6 caracteres.";
+        err.classList.remove('hidden');
+        pw1.focus();
+        return;
+      }
+
+      if (pass1 !== pass2) {
+        e.preventDefault();
+        err.textContent = "Las contraseñas no coinciden.";
+        err.classList.remove('hidden');
+        pw2.focus();
+        return;
+      }
+
+      if (!terms.checked) {
+        e.preventDefault();
+        err.textContent = "Debes aceptar los términos para continuar.";
+        err.classList.remove('hidden');
+        terms.focus();
+        return;
+      }
+    });
+  </script>
+</AuthLayout>

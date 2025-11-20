@@ -1,0 +1,233 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { supabase } from "@/lib/supabase";
+
+// 🔐 Sesión desde cookies
+const accessToken = Astro.cookies.get("sb-access-token");
+const refreshToken = Astro.cookies.get("sb-refresh-token");
+
+if (!accessToken || !refreshToken) {
+  return Astro.redirect("/auth/signin");
+}
+
+// 🔐 Establecer sesión (SSR)
+const { data: sessData, error: sessErr } = await supabase.auth.setSession({
+  access_token: accessToken.value!,
+  refresh_token: refreshToken.value!,
+});
+
+if (sessErr || !sessData?.user) {
+  Astro.cookies.delete("sb-access-token", { path: "/" });
+  Astro.cookies.delete("sb-refresh-token", { path: "/" });
+  return Astro.redirect("/auth/signin");
+}
+
+const user = sessData.user;
+
+// ✅ Email confirmado
+if (!user.email_confirmed_at) {
+  return Astro.redirect("/auth/check-email");
+}
+
+// ✅ Perfil existente
+const { data: profile, error: profileErr } = await supabase
+  .from("profiles")
+  .select("role, company_name, created_at, updated_at")
+  .eq("user_id", user.id)
+  .maybeSingle();
+
+if (!profile || profileErr) {
+  // 🔧 corrige la ruta con barra inicial
+  return Astro.redirect("/profile/create");
+}
+
+const email = user.email!;
+const role = profile.role ?? "—";
+const companyName = profile.company_name ?? "—";
+
+// (Opcional) Si más adelante tienes endpoints para métricas, puedes cargarlos aquí
+// const loadsCount = 0; const trucksCount = 0; etc.
+---
+
+<Layout title="Panel de control | CargoMarket">
+  <!-- Fondo coherente con la landing -->
+  <section class="relative min-h-screen w-full">
+    <div class="absolute inset-0 -z-10" style="background: linear-gradient(to bottom right, #eff6ff, #ffffff, #f8fafc);"></div>
+
+    <!-- Topbar -->
+    <header class="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-sky-600 text-white grid place-items-center font-bold">C</div>
+          <span class="font-semibold">CargoMarket</span>
+          <span class="text-slate-400 hidden md:inline">| Panel</span>
+        </div>
+        <nav class="hidden md:flex items-center gap-6 text-sm text-slate-600">
+          <a class="hover:text-slate-900" href="/dashboard">Inicio</a>
+          <a class="hover:text-slate-900" href="/market/loads">Cargas</a>
+          <a class="hover:text-slate-900" href="/market/trucks">Camiones</a>
+          <a class="hover:text-slate-900" href="/account">Cuenta</a>
+        </nav>
+        <form action="/api/auth/signout" method="post" class="flex items-center gap-3">
+          <span class="hidden sm:block text-sm text-slate-600">{email}</span>
+          <button
+            type="submit"
+            class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm hover:bg-black"
+            aria-label="Cerrar sesión"
+          >
+            Salir
+          </button>
+        </form>
+      </div>
+    </header>
+
+    <!-- Contenido -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <!-- Bienvenida -->
+      <div class="grid gap-6 lg:grid-cols-3">
+        <!-- Saludo + CTA -->
+        <section class="lg:col-span-2 rounded-2xl bg-white/80 backdrop-blur border border-white/60 shadow p-6">
+          <h1 class="text-2xl md:text-3xl font-semibold">
+            ¡Hola, <span class="text-sky-700">{companyName}</span>!
+          </h1>
+          <p class="mt-2 text-slate-600">
+            Bienvenido/a a tu panel. Revisa tu resumen y accede a las acciones rápidas para empezar.
+          </p>
+
+          <!-- Acciones rápidas -->
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="/market/loads/new" class="px-4 py-2.5 rounded-lg bg-sky-600 text-white hover:bg-sky-700">Publicar carga</a>
+            <a href="/market/trucks" class="px-4 py-2.5 rounded-lg border border-slate-300 hover:bg-white">Buscar camiones</a>
+            <a href="/profile/edit" class="px-4 py-2.5 rounded-lg border border-slate-300 hover:bg-white">Editar perfil</a>
+          </div>
+        </section>
+
+        <!-- Tarjeta de perfil -->
+        <aside class="rounded-2xl bg-white/80 backdrop-blur border border-white/60 shadow p-6">
+          <h2 class="text-lg font-medium">Tu perfil</h2>
+          <dl class="mt-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <dt class="text-slate-500 text-sm">Empresa</dt>
+              <dd class="text-sm font-medium">{companyName}</dd>
+            </div>
+            <div class="flex items-center justify-between">
+              <dt class="text-slate-500 text-sm">Rol</dt>
+              <dd class="text-sm font-medium capitalize">{role}</dd>
+            </div>
+            <div class="flex items-center justify-between">
+              <dt class="text-slate-500 text-sm">Email</dt>
+              <dd class="text-sm font-medium">{email}</dd>
+            </div>
+            <div class="flex items-center justify-between">
+              <dt class="text-slate-500 text-sm">Estado</dt>
+              <dd class="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
+                Verificado
+              </dd>
+            </div>
+          </dl>
+          <a href="/profile/edit" class="mt-5 inline-flex items-center text-sm text-sky-700 hover:underline">
+            Completar/editar perfil
+          </a>
+        </aside>
+      </div>
+
+      <!-- Métricas / KPIs -->
+      <section class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-xl bg-white shadow-sm border border-slate-200 p-5">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Cargas activas</p>
+          <p class="text-2xl font-semibold mt-1">—</p>
+          <p class="text-xs text-slate-400 mt-2">Publicadas por tu empresa</p>
+        </div>
+        <div class="rounded-xl bg-white shadow-sm border border-slate-200 p-5">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Ofertas recibidas</p>
+          <p class="text-2xl font-semibold mt-1">—</p>
+          <p class="text-xs text-slate-400 mt-2">Últimos 7 días</p>
+        </div>
+        <div class="rounded-xl bg-white shadow-sm border border-slate-200 p-5">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Camiones disponibles</p>
+          <p class="text-2xl font-semibold mt-1">—</p>
+          <p class="text-xs text-slate-400 mt-2">Zona preferente</p>
+        </div>
+        <div class="rounded-xl bg-white shadow-sm border border-slate-200 p-5">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Valoración</p>
+          <p class="text-2xl font-semibold mt-1">—</p>
+          <p class="text-xs text-slate-400 mt-2">Reputación media</p>
+        </div>
+      </section>
+
+      <!-- Dos columnas: actividad + checklist -->
+      <section class="mt-8 grid gap-6 lg:grid-cols-3">
+        <!-- Actividad reciente -->
+        <div class="lg:col-span-2 rounded-2xl bg-white/80 backdrop-blur border border-white/60 shadow">
+          <div class="flex items-center justify-between p-6 border-b border-slate-200">
+            <h3 class="text-lg font-medium">Actividad reciente</h3>
+            <a href="/activity" class="text-sm text-sky-700 hover:underline">Ver todo</a>
+          </div>
+          <ul class="divide-y divide-slate-200">
+            <li class="p-6 flex items-start gap-4">
+              <div class="w-9 h-9 rounded-lg bg-slate-900 text-white grid place-items-center text-sm">L</div>
+              <div class="flex-1">
+                <p class="text-sm"><strong>Has publicado</strong> una nueva carga: Pamplona → Zaragoza</p>
+                <p class="text-xs text-slate-500 mt-1">hace 2 h</p>
+              </div>
+            </li>
+            <li class="p-6 flex items-start gap-4">
+              <div class="w-9 h-9 rounded-lg bg-slate-900 text-white grid place-items-center text-sm">O</div>
+              <div class="flex-1">
+                <p class="text-sm"><strong>Ofertas:</strong> 3 transportistas han ofertado tu carga #1234</p>
+                <p class="text-xs text-slate-500 mt-1">hace 5 h</p>
+              </div>
+            </li>
+            <li class="p-6 flex items-start gap-4">
+              <div class="w-9 h-9 rounded-lg bg-slate-900 text-white grid place-items-center text-sm">R</div>
+              <div class="flex-1">
+                <p class="text-sm"><strong>Reputación:</strong> Nuevo comentario de TransX Logistics</p>
+                <p class="text-xs text-slate-500 mt-1">ayer</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Checklist / Onboarding -->
+        <aside class="rounded-2xl bg-white/80 backdrop-blur border border-white/60 shadow p-6">
+          <h3 class="text-lg font-medium">Primeros pasos</h3>
+          <ul class="mt-4 space-y-3 text-sm">
+            <li class="flex items-center gap-3">
+              <input type="checkbox" checked class="rounded" />
+              <span>Verifica tu email</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <input type="checkbox" checked class="rounded" />
+              <span>Completa tu perfil de empresa</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <input type="checkbox" class="rounded" />
+              <span>Publica tu primera carga</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <input type="checkbox" class="rounded" />
+              <span>Conecta método de pago / facturación</span>
+            </li>
+          </ul>
+          <a href="/market/loads/new" class="mt-5 inline-flex items-center px-4 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700">
+            Publicar carga
+          </a>
+        </aside>
+      </section>
+
+      <!-- CTA final -->
+      <section class="mt-10">
+        <div class="rounded-2xl bg-slate-900 text-white p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div>
+            <h3 class="text-2xl font-semibold">Optimiza tu operativa</h3>
+            <p class="text-slate-300 mt-1">Activa alertas por ruta y recibe ofertas automáticas.</p>
+          </div>
+          <div class="flex gap-3">
+            <a href="/alerts" class="px-5 py-3 rounded-lg bg-white text-slate-900 hover:bg-slate-200">Configurar alertas</a>
+            <a href="/settings" class="px-5 py-3 rounded-lg border border-white/30 hover:bg-white/10">Ajustes</a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </section>
+</Layout>
