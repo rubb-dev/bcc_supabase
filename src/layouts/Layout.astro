@@ -1,11 +1,19 @@
 ---
 import "@/styles/global.css";
 
-const { title = "CargoMarket — Bolsa de cargas simple", description = "Conecta cargadores y transportistas verificados. Publica cargas y encuentra camiones fácilmente." } = Astro.props;
+interface Props {
+	title?: string;
+	description?: string;
+}
+
+const {
+	title = "CargoMarket — Bolsa de cargas simple",
+	description = "Conecta cargadores y transportistas verificados. Publica cargas y encuentra camiones fácilmente.",
+} = Astro.props;
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang="es" class="h-full bg-slate-50 antialiased">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -14,43 +22,39 @@ const { title = "CargoMarket — Bolsa de cargas simple", description = "Conecta
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
 
-		<!-- TailwindCSS -->
-		<script src="https://cdn.tailwindcss.com"></script>
-
 		<!-- Fuente Inter -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
 
 		<style>
-			html {
-				font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
-				scroll-behavior: smooth;
-			}
-			body {
-				margin: 0;
-				width: 100%;
-				min-height: 100vh;
-				display: flex;
-				flex-direction: column;
-				background-color: #f9fafb;
-				color: #111827;
-			}
-			main {
-				flex: 1;
+			:root {
+				font-family:
+					"Inter",
+					system-ui,
+					-apple-system,
+					sans-serif;
 			}
 		</style>
 	</head>
 
-	<body>
-		<!-- Contenido dinámico -->
-		<main>
+	<body class="flex min-h-full flex-col text-slate-900">
+		<main class="flex-1">
 			<slot />
 		</main>
 
-		<!-- Footer global -->
-		<footer class="py-6 text-center text-sm text-slate-500 border-t border-slate-200 bg-white/70 backdrop-blur">
-			<p>© 2025 CargoMarket. Todos los derechos reservados.</p>
+		<footer class="border-t border-slate-200 bg-white py-8">
+			<div
+				class="mx-auto max-w-7xl px-4 text-center text-sm text-slate-500 sm:px-6 lg:px-8"
+			>
+				<p>
+					&copy; {new Date().getFullYear()} CargoMarket. Todos los derechos
+					reservados.
+				</p>
+			</div>
 		</footer>
 	</body>
 </html>

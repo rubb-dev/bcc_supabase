@@ -292,10 +292,19 @@ function formatRelative(dateStr: string) {
             </p>
           </div>
           <div class="flex flex-wrap gap-4">
-            <Button as="a" href="/auth/register" variant="secondary">
+            <Button
+              as="a"
+              href="/auth/register"
+              class="bg-white text-slate-900 hover:bg-slate-100"
+            >
               Crear cuenta
             </Button>
-            <Button as="a" href="/auth/signin" variant="primary">
+            <Button
+              as="a"
+              href="/auth/signin"
+              variant="outline"
+              class="border-white/20 text-white hover:bg-white/10"
+            >
               Iniciar sesión
             </Button>
           </div>

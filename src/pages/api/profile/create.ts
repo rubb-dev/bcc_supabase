@@ -1,99 +1,37 @@
 import type { APIRoute } from "astro";
 import { supabase } from "@/lib/supabase";
 
-type Load = {
-  id: string;
-  created_at: string;
-  created_by: string;
-
-  origin_city_name: string;
-  origin_postal_code: string;
-  origin_country_code: string;
-  origin_lat: number;
-  origin_lon: number;
-
-  destination_city_name: string;
-  destination_postal_code: string;
-  destination_country_code: string;
-  destination_lat: number;
-  destination_lon: number;
-
-  valid_from: string;   // date
-  valid_until: string;  // date
-
-  weight_t: number;       // en toneladas
-
-  length_m: number | null;
-  width_m: number | null;
-  height_m: number | null;
-  volume_m3: number | null;
-
-  is_palletized: boolean;
-  description: string;
-};
-
-// GET /api/loads
-export const GET: APIRoute = async () => {
+export const POST: APIRoute = async ({ request, redirect }) => {
   // 1) Obtener usuario autenticado
   const { data: userRes, error: userError } = await supabase.auth.getUser();
   const user = userRes?.user;
 
   if (userError || !user) {
-    return new Response(
-      JSON.stringify({ error: "Not authenticated" }),
-      { status: 401 }
-    );
+    return redirect("/auth/signin");
   }
 
-  // 2) Hoy (para filtrar cargas aún válidas, opcional)
-  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  // 2) Leer datos del formulario
+  const formData = await request.formData();
+  const companyName = formData.get("company_name")?.toString();
+  const role = formData.get("role")?.toString();
 
-  // 3) Consultar las cargas de ese usuario
-  const { data, error } = await supabase
-    .from("loads")
-    .select(
-      `
-      id,
-      created_at,
-      created_by,
-      origin_city_name,
-      origin_postal_code,
-      origin_country_code,
-      origin_lat,
-      origin_lon,
-      destination_city_name,
-      destination_postal_code,
-      destination_country_code,
-      destination_lat,
-      destination_lon,
-      valid_from,
-      valid_until,
-      weight_t,
-      length_m,
-      width_m,
-      height_m,
-      volume_m3,
-      is_palletized,
-      description
-    `
-    )
-    .eq("created_by", user.id)   // solo sus cargas
-    .gte("valid_until", today)   // solo cargas aún activas (puedes quitarlo si no quieres)
-    .order("created_at", { ascending: false });
+  // Validación básica
+  if (!companyName || !role) {
+    return redirect("/profile/create?error=profile");
+  }
+
+  // 3) Insertar en la tabla 'profiles'
+  const { error } = await supabase.from("profiles").insert({
+    user_id: user.id,
+    company_name: companyName,
+    role: role,
+  });
 
   if (error) {
-    console.error("Error obteniendo cargas:", error);
-    return new Response(
-      JSON.stringify({ error: "Error fetching loads" }),
-      { status: 500 }
-    );
+    console.error("Error creando perfil:", error);
+    return redirect("/profile/create?error=profile");
   }
 
-  const loads = (data ?? []) as Load[];
-
-  // 4) Devolver JSON
-  return new Response(JSON.stringify(loads), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  // 4) Redirigir al dashboard
+  return redirect("/dashboard");
 };
