@@ -1,13 +1,16 @@
 ---
 import Layout from "@/layouts/AuthLayout.astro";
 import { supabase } from "@/lib/supabase";
+import Card from "@/components/ui/Card.astro";
+import Input from "@/components/ui/Input.astro";
+import Select from "@/components/ui/Select.astro";
+import Button from "@/components/ui/Button.astro";
 
 // 1) Recuperar sesión
 const accessToken = Astro.cookies.get("sb-access-token");
 const refreshToken = Astro.cookies.get("sb-refresh-token");
 
 if (!accessToken || !refreshToken) {
-  // usa tu ruta de login
   return Astro.redirect("/auth/signin");
 }
 
@@ -26,7 +29,6 @@ const user = sessData.user;
 
 // 2) Verificar email confirmado
 if (!user.email_confirmed_at) {
-  // usa tu ruta de check-email
   return Astro.redirect("/check-email");
 }
 
@@ -52,88 +54,95 @@ const errorMessage =
 
 <Layout title="Completa tu perfil | CargoMarket">
   <section
-    class="relative min-h-screen flex items-center justify-center px-6 py-20"
-    style="background: linear-gradient(to bottom right, #eff6ff, #ffffff, #f8fafc);"
+    class="relative min-h-screen flex items-center justify-center px-6 py-20 bg-slate-50"
   >
-    <div class="relative w-full max-w-md bg-white/85 backdrop-blur-md border border-white/60 rounded-2xl shadow-xl p-8">
-      <div class="text-center mb-6">
-        <div class="mx-auto w-12 h-12 rounded-lg bg-sky-600 text-white flex items-center justify-center text-xl font-bold">
+    <Card class="w-full max-w-md p-8">
+      <div class="text-center mb-8">
+        <div
+          class="mx-auto w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xl font-bold"
+        >
           C
         </div>
-        <h1 class="text-2xl font-semibold mt-3 text-gray-800">Completa tu perfil</h1>
-        <p class="text-sm text-gray-600 mt-2">
-          Hola, <span class="font-medium">{user.email}</span>. Añade tus datos para continuar.
+        <h1 class="text-2xl font-bold mt-4 text-slate-900">
+          Completa tu perfil
+        </h1>
+        <p class="text-sm text-slate-600 mt-2">
+          Hola, <span class="font-medium text-slate-900">{user.email}</span>.
+          Añade tus datos para continuar.
         </p>
       </div>
 
-      {errorMessage && (
-        <p class="text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4 text-sm" role="alert">
-          {errorMessage}
-        </p>
-      )}
+      {
+        errorMessage && (
+          <div
+            class="bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-lg text-sm mb-6"
+            role="alert"
+          >
+            {errorMessage}
+          </div>
+        )
+      }
 
-      <form id="create-profile-form" action="/api/profile/create" method="post" class="space-y-5" novalidate>
+      <form
+        id="create-profile-form"
+        action="/api/profile/create"
+        method="post"
+        class="space-y-6"
+        novalidate
+      >
         <!-- Empresa -->
-        <div>
-          <label for="company_name" class="block text-sm font-medium text-gray-700">
-            Nombre de empresa *
-          </label>
-          <input
-            type="text"
-            name="company_name"
-            id="company_name"
-            required
-            placeholder="Ej: Vetonek"
-            class="w-full mt-1 rounded-lg border-gray-300 focus:border-sky-500 focus:ring-sky-500"
-          />
-        </div>
+        <Input
+          label="Nombre de empresa *"
+          name="company_name"
+          id="company_name"
+          required
+          placeholder="Ej: Vetonek"
+        />
 
         <!-- Rol -->
-        <div>
-          <label for="role" class="block text-sm font-medium text-gray-700">Rol *</label>
-          <select
-            name="role"
-            id="role"
-            required
-            class="w-full mt-1 rounded-lg border-gray-300 focus:border-sky-500 focus:ring-sky-500"
-          >
-            <option value="" disabled selected>Selecciona tu rol</option>
-            <option value="cargador">Cargador</option>
-            <option value="transportista">Transportista</option>
-          </select>
-        </div>
+        <Select
+          label="Rol *"
+          name="role"
+          id="role"
+          required
+          options={[
+            {
+              value: "",
+              label: "Selecciona tu rol",
+              disabled: true,
+              selected: true,
+            },
+            { value: "cargador", label: "Cargador" },
+            { value: "transportista", label: "Transportista" },
+          ]}
+        />
 
         <!-- Guardar -->
-        <button
-          type="submit"
-          class="w-full py-2.5 px-4 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700 transition-colors"
-        >
-          Guardar y continuar
-        </button>
+        <Button type="submit" class="w-full"> Guardar y continuar </Button>
 
-        <p class="text-xs text-gray-500 text-center mt-2">
+        <p class="text-xs text-slate-500 text-center">
           Todos los campos son obligatorios.
         </p>
       </form>
-    </div>
+    </Card>
   </section>
 
   <!-- Validación mínima en cliente -->
   <script is:inline>
-    const form = document.getElementById('create-profile-form');
-    const company = document.getElementById('company_name');
-    const role = document.getElementById('role');
+    const form = document.getElementById("create-profile-form");
+    const company = document.getElementById("company_name");
+    const role = document.getElementById("role");
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener("submit", (e) => {
       if (!company.value.trim()) {
         e.preventDefault();
-        alert('El nombre de empresa es obligatorio.');
+        alert("El nombre de empresa es obligatorio.");
         company.focus();
         return;
       }
       if (!role.value) {
         e.preventDefault();
-        alert('Selecciona un rol.');
+        alert("Selecciona un rol.");
         role.focus();
         return;
       }

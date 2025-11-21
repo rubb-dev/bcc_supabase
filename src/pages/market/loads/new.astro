@@ -1,0 +1,365 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import Container from "../../../components/ui/Container.astro";
+import Card from "../../../components/ui/Card.astro";
+import Input from "../../../components/ui/Input.astro";
+import Button from "../../../components/ui/Button.astro";
+import CityAutocomplete from "../../../components/ui/CityAutocomplete.astro";
+import { supabase } from "../../../lib/supabase";
+
+// 1) Verificar sesión
+const accessToken = Astro.cookies.get("sb-access-token");
+const refreshToken = Astro.cookies.get("sb-refresh-token");
+
+if (!accessToken || !refreshToken) {
+    return Astro.redirect("/auth/signin");
+}
+
+const { data: sessData, error: sessErr } = await supabase.auth.setSession({
+    access_token: accessToken.value!,
+    refresh_token: refreshToken.value!,
+});
+
+if (sessErr || !sessData?.user) {
+    return Astro.redirect("/auth/signin");
+}
+
+const user = sessData.user;
+
+// 3) Manejo de errores por query param
+const url = new URL(Astro.request.url);
+const error = url.searchParams.get("error");
+let errorMessage = "";
+if (error === "insert")
+    errorMessage = "Error al crear la carga. Inténtalo de nuevo.";
+if (error === "missing") errorMessage = "Faltan campos obligatorios.";
+
+// 4) Obtener tipos de vehículos
+const { data: vehicleTypes } = await supabase
+    .from("vehicle_types")
+    .select("id, name")
+    .order("name");
+---
+
+<Layout title="Publicar nueva carga | CargoMarket">
+    <div class="min-h-full bg-slate-50 pb-12 pt-6">
+        <Container>
+            <div class="mb-6">
+                <div class="mb-4">
+                    <Button
+                        as="a"
+                        href="/dashboard"
+                        variant="ghost"
+                        size="sm"
+                        class="gap-2 pl-0 hover:bg-transparent hover:text-slate-900"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="w-4 h-4"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path>
+                        </svg>
+                        Volver al Dashboard
+                    </Button>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-900">
+                    Publicar nueva carga
+                </h1>
+                <p class="text-slate-600">
+                    Completa los detalles para encontrar transportista.
+                </p>
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-3">
+                <!-- Formulario -->
+                <div class="lg:col-span-2">
+                    <Card class="p-6">
+                        {
+                            errorMessage && (
+                                <div class="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700 border border-red-100">
+                                    {errorMessage}
+                                </div>
+                            )
+                        }
+
+                        <form
+                            action="/api/loads"
+                            method="post"
+                            class="space-y-8"
+                        >
+                            <!-- Ruta -->
+                            <section>
+                                <h2
+                                    class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke-width="1.5"
+                                        stroke="currentColor"
+                                        class="w-5 h-5 text-sky-600"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                                        ></path>
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                                        ></path>
+                                    </svg>
+                                    Ruta
+                                </h2>
+                                <div class="grid gap-6 md:grid-cols-2">
+                                    <CityAutocomplete
+                                        label="Origen *"
+                                        namePrefix="origin"
+                                        placeholder="Ciudad de recogida"
+                                        required
+                                    />
+                                    <CityAutocomplete
+                                        label="Destino *"
+                                        namePrefix="destination"
+                                        placeholder="Ciudad de entrega"
+                                        required
+                                    />
+                                </div>
+                            </section>
+
+                            <hr class="border-slate-100" />
+
+                            <!-- Fechas -->
+                            <section>
+                                <h2
+                                    class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke-width="1.5"
+                                        stroke="currentColor"
+                                        class="w-5 h-5 text-sky-600"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                                        ></path>
+                                    </svg>
+                                    Fechas de recogida
+                                </h2>
+                                <div class="grid gap-6 md:grid-cols-2">
+                                    <Input
+                                        type="date"
+                                        label="Válida desde *"
+                                        name="valid_from"
+                                        id="valid_from"
+                                        required
+                                    />
+                                    <Input
+                                        type="date"
+                                        label="Válida hasta *"
+                                        name="valid_until"
+                                        id="valid_until"
+                                        required
+                                    />
+                                </div>
+                            </section>
+
+                            <hr class="border-slate-100" />
+
+                            <!-- Carga -->
+                            <section>
+                                <h2
+                                    class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke-width="1.5"
+                                        stroke="currentColor"
+                                        class="w-5 h-5 text-sky-600"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
+                                        ></path>
+                                    </svg>
+                                    Detalles de la carga
+                                </h2>
+
+                                <div class="grid gap-6 md:grid-cols-3 mb-4">
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        label="Peso (toneladas) *"
+                                        name="weight_t"
+                                        id="weight_t"
+                                        placeholder="Ej: 24.5"
+                                        required
+                                    />
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        label="Volumen (m³)"
+                                        name="volume_m3"
+                                        id="volume_m3"
+                                        placeholder="Ej: 33"
+                                    />
+                                    <div class="flex items-center h-full pt-6">
+                                        <label
+                                            class="flex items-center gap-2 cursor-pointer"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                name="is_palletized"
+                                                value="true"
+                                                class="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500"
+                                            />
+                                            <span class="text-sm text-slate-700"
+                                                >Paletizado</span
+                                            >
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-6 md:grid-cols-3">
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        label="Largo (m)"
+                                        name="length_m"
+                                        id="length_m"
+                                        placeholder="Ej: 13.6"
+                                    />
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        label="Ancho (m)"
+                                        name="width_m"
+                                        id="width_m"
+                                        placeholder="Ej: 2.4"
+                                    />
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        label="Alto (m)"
+                                        name="height_m"
+                                        id="height_m"
+                                        placeholder="Ej: 2.7"
+                                    />
+                                </div>
+                            </section>
+
+                            <hr class="border-slate-100" />
+
+                            <!-- Tipos de Vehículo -->
+                            <section>
+                                <h2
+                                    class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke-width="1.5"
+                                        stroke="currentColor"
+                                        class="w-5 h-5 text-sky-600"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+                                        ></path>
+                                    </svg>
+                                    Tipos de vehículo compatibles
+                                </h2>
+                                <div
+                                    class="grid gap-4 sm:grid-cols-2 md:grid-cols-3"
+                                >
+                                    {
+                                        vehicleTypes?.map((vt) => (
+                                            <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    name="vehicle_types"
+                                                    value={vt.id}
+                                                    class="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500"
+                                                />
+                                                <span class="text-sm text-slate-700">
+                                                    {vt.name}
+                                                </span>
+                                            </label>
+                                        ))
+                                    }
+                                </div>
+                            </section>
+
+                            <hr class="border-slate-100" />
+
+                            <!-- Descripción -->
+                            <section>
+                                <label
+                                    for="description"
+                                    class="block text-sm font-medium text-slate-700 mb-1.5"
+                                >
+                                    Descripción adicional
+                                </label>
+                                <textarea
+                                    name="description"
+                                    id="description"
+                                    rows="3"
+                                    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                                    placeholder="Tipo de mercancía, requisitos especiales, horarios..."
+                                ></textarea>
+                            </section>
+
+                            <div class="flex justify-end pt-4">
+                                <Button type="submit" size="lg">
+                                    Publicar carga
+                                </Button>
+                            </div>
+                        </form>
+                    </Card>
+                </div>
+
+                <!-- Sidebar / Info -->
+                <div class="hidden lg:block">
+                    <Card class="p-6 sticky top-24">
+                        <h3 class="font-semibold text-slate-900 mb-4">
+                            Consejos para publicar
+                        </h3>
+                        <ul class="space-y-3 text-sm text-slate-600">
+                            <li class="flex gap-2">
+                                <span class="text-sky-600 font-bold">•</span>
+                                Especifica bien las fechas de recogida.
+                            </li>
+                            <li class="flex gap-2">
+                                <span class="text-sky-600 font-bold">•</span>
+                                Indica si la mercancía es paletizada para agilizar
+                                la carga.
+                            </li>
+                            <li class="flex gap-2">
+                                <span class="text-sky-600 font-bold">•</span>
+                                Añade detalles sobre el acceso si es complicado.
+                            </li>
+                        </ul>
+                    </Card>
+                </div>
+            </div>
+        </Container>
+    </div>
+</Layout>

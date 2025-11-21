@@ -136,3 +136,94 @@ export const GET: APIRoute = async () => {
     headers: { "Content-Type": "application/json" },
   });
 };
+
+export const POST: APIRoute = async ({ request, redirect }) => {
+  // 1) Autenticación
+  const { data: userRes, error: userError } = await supabase.auth.getUser();
+  const user = userRes?.user;
+
+  if (userError || !user) {
+    return redirect("/auth/signin");
+  }
+
+  // 2) Leer datos
+  const formData = await request.formData();
+
+  const getString = (key: string) => formData.get(key)?.toString() || "";
+  const getNumber = (key: string) => {
+    const val = formData.get(key);
+    return val ? parseFloat(val.toString()) : null;
+  };
+  const getBool = (key: string) => formData.get(key) === "true";
+
+  const loadData = {
+    created_by: user.id,
+    
+    origin_city_name: getString("origin_city_name"),
+    origin_postal_code: getString("origin_postal_code"),
+    origin_country_code: getString("origin_country_code"),
+    origin_lat: getNumber("origin_lat") || 0,
+    origin_lon: getNumber("origin_lon") || 0,
+
+    destination_city_name: getString("destination_city_name"),
+    destination_postal_code: getString("destination_postal_code"),
+    destination_country_code: getString("destination_country_code"),
+    destination_lat: getNumber("destination_lat") || 0,
+    destination_lon: getNumber("destination_lon") || 0,
+
+    valid_from: getString("valid_from"),
+    valid_until: getString("valid_until"),
+
+    weight_t: getNumber("weight_t") || 0,
+    volume_m3: getNumber("volume_m3"),
+    
+    length_m: getNumber("length_m"),
+    width_m: getNumber("width_m"),
+    height_m: getNumber("height_m"),
+
+    is_palletized: getBool("is_palletized"),
+    description: getString("description"),
+  };
+
+  // Validación mínima
+  if (
+    !loadData.origin_city_name ||
+    !loadData.destination_city_name ||
+    !loadData.valid_from ||
+    !loadData.valid_until ||
+    !loadData.weight_t
+  ) {
+    return redirect("/market/loads/new?error=missing");
+  }
+
+  // 3) Insertar
+  const { data: insertedLoad, error } = await supabase
+    .from("loads")
+    .insert(loadData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creando carga:", error);
+    return redirect("/market/loads/new?error=insert");
+  }
+
+  // 4) Insertar tipos de vehículo
+  const vehicleTypeIds = formData.getAll("vehicle_types").map((v) => v.toString());
+  if (vehicleTypeIds.length > 0) {
+    const vehicleTypeInserts = vehicleTypeIds.map((vtId) => ({
+      load_id: insertedLoad.id,
+      vehicle_type_id: vtId,
+    }));
+    const { error: vtError } = await supabase
+      .from("load_vehicle_types")
+      .insert(vehicleTypeInserts);
+
+    if (vtError) {
+      console.error("Error asociando tipos de vehículo:", vtError);
+      // No fallamos la request entera, pero logueamos el error
+    }
+  }
+
+  return redirect("/dashboard");
+};

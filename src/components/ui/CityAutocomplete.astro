@@ -1,0 +1,258 @@
+---
+interface Props {
+    label?: string;
+    namePrefix: string; // e.g. "origin" -> origin_city_name, origin_lat, etc.
+    placeholder?: string;
+    required?: boolean;
+}
+
+const { label, namePrefix, placeholder, required } = Astro.props;
+---
+
+<div
+    class="relative flex flex-col gap-1.5 city-autocomplete"
+    data-prefix={namePrefix}
+>
+    {label && <label class="text-sm font-medium text-slate-700">{label}</label>}
+
+    <!-- Inputs ocultos para enviar al servidor -->
+    <input
+        type="hidden"
+        name={`${namePrefix}_city_name`}
+        class="input-city-name"
+    />
+    <input
+        type="hidden"
+        name={`${namePrefix}_postal_code`}
+        class="input-postal-code"
+    />
+    <input
+        type="hidden"
+        name={`${namePrefix}_country_code`}
+        class="input-country-code"
+    />
+    <input type="hidden" name={`${namePrefix}_lat`} class="input-lat" />
+    <input type="hidden" name={`${namePrefix}_lon`} class="input-lon" />
+
+    <div class="relative">
+        <input
+            type="text"
+            class="input-search flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+            placeholder={placeholder || "Buscar ciudad..."}
+            required={required}
+            autocomplete="off"
+        />
+
+        <!-- Spinner de carga -->
+        <div class="absolute right-3 top-2.5 hidden spinner">
+            <svg
+                class="animate-spin h-5 w-5 text-slate-500"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"></circle>
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+            </svg>
+        </div>
+
+        <!-- Lista de sugerencias -->
+        <ul
+            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm hidden suggestions-list"
+        >
+            <!-- Se llena con JS -->
+        </ul>
+    </div>
+</div>
+
+<script>
+    // Lógica de autocompletado
+    class CityAutocomplete {
+        container: HTMLElement;
+        prefix: string | undefined;
+        inputSearch: HTMLInputElement | null;
+        spinner: HTMLElement | null;
+        suggestionsList: HTMLElement | null;
+        inputs: {
+            cityName: HTMLInputElement | null;
+            postalCode: HTMLInputElement | null;
+            countryCode: HTMLInputElement | null;
+            lat: HTMLInputElement | null;
+            lon: HTMLInputElement | null;
+        };
+        debounceTimer: number | null;
+
+        constructor(container: HTMLElement) {
+            this.container = container;
+            this.prefix = container.dataset.prefix;
+
+            this.inputSearch = container.querySelector(".input-search");
+            this.spinner = container.querySelector(".spinner");
+            this.suggestionsList = container.querySelector(".suggestions-list");
+
+            this.inputs = {
+                cityName: container.querySelector(".input-city-name"),
+                postalCode: container.querySelector(".input-postal-code"),
+                countryCode: container.querySelector(".input-country-code"),
+                lat: container.querySelector(".input-lat"),
+                lon: container.querySelector(".input-lon"),
+            };
+
+            this.debounceTimer = null;
+
+            this.setupListeners();
+        }
+
+        setupListeners() {
+            if (!this.inputSearch) return;
+
+            this.inputSearch.addEventListener("input", (e: Event) => {
+                const target = e.target as HTMLInputElement;
+                const query = target.value.trim();
+
+                // Limpiar selección previa si el usuario edita
+                this.clearSelection();
+
+                if (query.length < 3) {
+                    this.hideSuggestions();
+                    return;
+                }
+
+                if (this.debounceTimer) clearTimeout(this.debounceTimer);
+                this.debounceTimer = window.setTimeout(
+                    () => this.fetchCities(query),
+                    300,
+                );
+            });
+
+            // Cerrar sugerencias al hacer click fuera
+            document.addEventListener("click", (e) => {
+                if (!this.container.contains(e.target as Node)) {
+                    this.hideSuggestions();
+                }
+            });
+        }
+
+        async fetchCities(query: string) {
+            this.showSpinner();
+            try {
+                // Usamos Nominatim (OpenStreetMap)
+                const params = new URLSearchParams({
+                    q: query,
+                    format: "json",
+                    addressdetails: "1",
+                    limit: "5",
+                    featuretype: "city", // Intentar limitar a ciudades
+                });
+
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+                );
+                if (!res.ok) throw new Error("Error fetching cities");
+
+                const data = await res.json();
+                this.renderSuggestions(data);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                this.hideSpinner();
+            }
+        }
+
+        renderSuggestions(cities: any[]) {
+            if (!this.suggestionsList) return;
+            this.suggestionsList.innerHTML = "";
+
+            if (cities.length === 0) {
+                this.hideSuggestions();
+                return;
+            }
+
+            cities.forEach((city: any) => {
+                const li = document.createElement("li");
+                li.className =
+                    "relative cursor-default select-none py-2 pl-3 pr-9 text-slate-900 hover:bg-sky-50 cursor-pointer";
+
+                // Construir etiqueta legible
+                const address = city.address || {};
+                const cityName =
+                    address.city ||
+                    address.town ||
+                    address.village ||
+                    address.municipality ||
+                    city.name;
+                const country = address.country || "";
+                const state = address.state || address.region || "";
+
+                li.textContent = `${cityName}, ${state ? state + ", " : ""}${country}`;
+
+                li.addEventListener("click", () => {
+                    this.selectCity(city, cityName);
+                });
+
+                this.suggestionsList?.appendChild(li);
+            });
+
+            this.showSuggestions();
+        }
+
+        selectCity(city: any, displayName: string) {
+            const address = city.address || {};
+
+            if (this.inputSearch) this.inputSearch.value = displayName;
+
+            // Llenar inputs ocultos
+            if (this.inputs.cityName) this.inputs.cityName.value = displayName;
+            if (this.inputs.postalCode)
+                this.inputs.postalCode.value = address.postcode || "";
+            if (this.inputs.countryCode)
+                this.inputs.countryCode.value = (
+                    address.country_code || ""
+                ).toUpperCase();
+            if (this.inputs.lat) this.inputs.lat.value = city.lat;
+            if (this.inputs.lon) this.inputs.lon.value = city.lon;
+
+            this.hideSuggestions();
+        }
+
+        clearSelection() {
+            // Solo limpiamos los valores ocultos, dejamos el texto visible para que siga editando
+            Object.values(this.inputs).forEach((input) => {
+                if (input) input.value = "";
+            });
+        }
+
+        showSpinner() {
+            this.spinner?.classList.remove("hidden");
+        }
+
+        hideSpinner() {
+            this.spinner?.classList.add("hidden");
+        }
+
+        showSuggestions() {
+            this.suggestionsList?.classList.remove("hidden");
+        }
+
+        hideSuggestions() {
+            this.suggestionsList?.classList.add("hidden");
+        }
+    }
+
+    // Inicializar todos los autocompletes de la página
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".city-autocomplete").forEach((el) => {
+            new CityAutocomplete(el as HTMLElement);
+        });
+    });
+</script>
