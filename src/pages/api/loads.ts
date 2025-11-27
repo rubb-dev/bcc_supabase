@@ -40,7 +40,7 @@ type Load = {
 };
 
 export const GET: APIRoute = async () => {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const today = new Date().toISOString().slice(0, 10); 
 
   // 2) Consulta a Supabase
   const { data, error } = await supabase

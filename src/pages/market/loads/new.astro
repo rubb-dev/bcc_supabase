@@ -1,11 +1,11 @@
 ---
-import Layout from "../../../layouts/Layout.astro";
-import Container from "../../../components/ui/Container.astro";
-import Card from "../../../components/ui/Card.astro";
-import Input from "../../../components/ui/Input.astro";
-import Button from "../../../components/ui/Button.astro";
-import CityAutocomplete from "../../../components/ui/CityAutocomplete.astro";
-import { supabase } from "../../../lib/supabase";
+import Layout from "@/layouts/Layout.astro";
+import Container from "@/components/ui/Container.astro";
+import Card from "@/components/ui/Card.astro";
+import Input from "@/components/ui/Input.astro";
+import Button from "@/components/ui/Button.astro";
+import CityAutocomplete from "@/components/ui/CityAutocomplete.astro";
+import { supabase } from "@/lib/supabase";
 
 // 1) Verificar sesión
 const accessToken = Astro.cookies.get("sb-access-token");
